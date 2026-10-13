@@ -104,6 +104,32 @@
     });
   }
 
+  // Image-card text (titles, captions, buttons) is styled very large and scaled down by
+  // Squarespace so the longest title on the page fits on one line; every card on the page then
+  // shares that scale: font-size: max(0.75rem, N%).
+  function fitDynamicText() {
+    // Card blocks narrower than 400px stack the image above the text
+    document.querySelectorAll('.image-block-outer-wrapper').forEach(function (fig) {
+      fig.classList.remove('sqs-narrow-width');
+      if (fig.getBoundingClientRect().width < 400) fig.classList.add('sqs-narrow-width');
+    });
+    var all = document.querySelectorAll('.sqs-dynamic-text');
+    if (!all.length) return;
+    all.forEach(function (el) { el.style.fontSize = ''; });
+    var pct = 100;
+    document.querySelectorAll('.image-title.sqs-dynamic-text').forEach(function (el) {
+      var avail = el.getBoundingClientRect().width;
+      el.classList.add('dynamic-text-measure');
+      var natural = el.scrollWidth;
+      el.classList.remove('dynamic-text-measure');
+      if (avail && natural) pct = Math.min(pct, Math.floor(avail / natural * 1000) / 10);
+    });
+    all.forEach(function (el) {
+      el.setAttribute('data-width-percentage', pct);
+      el.style.fontSize = 'max(0.75rem, ' + pct + '%)';
+    });
+  }
+
   // Grid gallery blocks: column widths come from site.css once the grid classes are present;
   // gutter and thumbnail aspect ratio come from the block's settings.
   var ASPECTS = { square: '1 / 1', 'standard': '4 / 3', 'standard-vertical': '3 / 4', widescreen: '16 / 9', 'three-two': '3 / 2', 'three-two-vertical': '2 / 3' };
@@ -190,7 +216,92 @@
     });
   }
 
+  // Fixed mobile bars overlay the page, so the body is offset by their height while they show.
+  function offsetMobileBars() {
+    [['top', 'marginTop'], ['bottom', 'marginBottom']].forEach(function (pos) {
+      var bar = document.querySelector('.Mobile-bar--' + pos[0]);
+      var fixed = body.classList.contains('tweak-mobile-bar-' + pos[0] + '-fixed');
+      var shown = bar && getComputedStyle(bar).display !== 'none' && bar.offsetHeight > 0;
+      body.style[pos[1]] = fixed && shown ? bar.offsetHeight + 'px' : '';
+    });
+  }
+
+  // Grid blog lists: as many columns (up to 4) as fit with items at least 200px wide and the
+  // template's 80px gutters, matching Squarespace's layout at every width.
+  function layoutBlogLists() {
+    if (!body.classList.contains('tweak-blog-list-style-grid')) return;
+    document.querySelectorAll('.BlogList').forEach(function (list) {
+      var w = list.getBoundingClientRect().width, n = 4;
+      while (n > 1 && (w - (n - 1) * 80) / n < 200) n--;
+      list.setAttribute('data-columns', n);
+    });
+  }
+
+  // The search page's input box was built by Squarespace's script.
+  function buildSearchPage() {
+    var box = document.querySelector('.sqs-search-page-input');
+    if (!box || box.querySelector('form')) return;
+    box.classList.add('sqs-search-input', 'sqs-search-input-content');
+    var form = document.createElement('form');
+    form.setAttribute('action', '/search');
+    form.innerHTML = '<input name="q" placeholder="Type to search\u2026" type="text" spellcheck="false" aria-label="Search">';
+    box.appendChild(form);
+    var q = new URLSearchParams(window.location.search).get('q');
+    if (q) form.querySelector('input').value = q;
+  }
+
+  // Map blocks used Squarespace's Google Maps key; embed the same location with Google's
+  // keyless embed instead.
+  function loadMaps() {
+    document.querySelectorAll('.sqs-block-map [data-context]').forEach(function (el) {
+      var loc;
+      try { loc = JSON.parse(el.getAttribute('data-context')).location; } catch (e) { return; }
+      if (!loc) return;
+      var q = [loc.addressLine1, loc.addressLine2, loc.addressCountry].filter(Boolean).join(', ') || (loc.mapLat + ',' + loc.mapLng);
+      var iframe = document.createElement('iframe');
+      iframe.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&z=' + (loc.mapZoom || 12) + '&output=embed';
+      iframe.title = 'Map';
+      iframe.loading = 'lazy';
+      iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:0';
+      el.style.position = 'relative';
+      if (!el.offsetHeight) el.style.minHeight = '100%';
+      el.appendChild(iframe);
+    });
+  }
+
+  // The first full-bleed image section fills 90% of the screen below the header bar and the
+  // site border: min-height: calc(90vh - (bar height + border)).
+  function sizeHeroSection() {
+    var first = document.querySelector('.Index-page');
+    if (!first || !first.classList.contains('Index-page--has-image')) return;
+    var header = document.querySelector('.Header--top'), mobileBar = document.querySelector('.Mobile-bar--top');
+    var bar = header && header.offsetHeight ? header.offsetHeight : (mobileBar ? mobileBar.offsetHeight : 0);
+    var border = Math.max(0, Math.round(first.getBoundingClientRect().left));
+    first.style.minHeight = 'calc(-' + (bar + border) + 'px + 90vh)';
+  }
+
+  // Spacer blocks get their height from data-aspect-ratio (a percentage of their width); the
+  // site CSS hides or resizes them on small screens.
+  function sizeSpacers() {
+    document.querySelectorAll('.sqs-block-spacer[data-aspect-ratio] > .sqs-block-content').forEach(function (c) {
+      c.style.paddingBottom = parseFloat(c.parentNode.getAttribute('data-aspect-ratio')) + '%';
+    });
+  }
+
+  // Blocks with entrance animations start hidden until Squarespace marks them loaded.
+  // Show them in their final state.
+  function revealAnimatedBlocks() {
+    document.querySelectorAll('.image-block-outer-wrapper, [class*="block-animation-"], [class*="combination-animation-"]').forEach(function (el) {
+      el.classList.add('animation-loaded', 'sqs-text-ready');
+    });
+    document.querySelectorAll('.sqs-block-image').forEach(function (el) { el.classList.add('sqs-text-ready'); });
+  }
+
   function init() {
+    revealAnimatedBlocks();
+    sizeSpacers();
+    buildSearchPage();
+    loadMaps();
     placeAncillary(document.querySelector('[data-nc-base="header"]'), 'ancillary-header-');
     placeAncillary(document.querySelector('[data-nc-base="mobile-bar"]'), 'ancillary-mobile-bar-');
     setupParallax();
@@ -199,9 +310,14 @@
     loadVideos();
     setupMobileNav();
     setupSearch();
+    offsetMobileBars();
+    sizeHeroSection();
+    layoutBlogLists();
+    fitDynamicText();
     layoutParallax();
-    window.addEventListener('resize', layoutParallax);
+    window.addEventListener('resize', function () { offsetMobileBars(); sizeHeroSection(); layoutBlogLists(); fitDynamicText(); layoutParallax(); });
     window.addEventListener('load', layoutParallax);
+    if (document.fonts) document.fonts.ready.then(function () { fitDynamicText(); layoutParallax(); });
     window.addEventListener('scroll', function () { window.requestAnimationFrame(scrollParallax); }, { passive: true });
     if (site) site.classList.add('loaded');
     body.classList.add('loaded');
