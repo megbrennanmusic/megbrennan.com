@@ -138,6 +138,7 @@
       if (!iframe) return;
       // Embedly wrappers point at a third-party proxy; embed the video directly instead.
       var src = iframe.getAttribute('src') || '';
+      if (/^\/\//.test(src)) iframe.setAttribute('src', 'https:' + src);
       if (/embedly\.com\/widgets\/media\.html/.test(src)) {
         var inner = new URLSearchParams(src.split('?')[1]).get('src');
         if (inner) iframe.setAttribute('src', inner);
