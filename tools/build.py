@@ -6,6 +6,7 @@ Each _original/<path>/index.html is rewritten to <path>/index.html with:
   - Squarespace CDN URLs pointed at the local mirror under /assets/<host>/...
   - Adobe Typekit replaced by the self-hosted stand-ins in /assets/fonts/fonts.css
   - Squarespace-only features (search, analytics, RSS, cookie banner) removed
+  - Page-specific content changes from CONTENT_EDITS applied
 
 Re-running is safe: generated pages are overwritten, _original/ is never touched.
 """
@@ -45,12 +46,51 @@ def strip_squarespace_services(html):
     return html.replace("</body>", '<script src="/assets/site/site.js" defer></script>\n</body>', 1)
 
 
+def remove_block(html, block_id):
+    """Remove one Squarespace content block (<div class="sqs-block ..." id=...>) and its subtree."""
+    m = re.search(r'<div class="sqs-block [^"]*"[^>]*id="' + re.escape(block_id) + '"[^>]*>', html)
+    if not m:
+        raise ValueError(f"block {block_id} not found")
+    depth, pos = 1, m.end()
+    for tag in re.finditer(r"<(/?)div\b[^>]*>", html[pos:]):
+        depth += -1 if tag.group(1) else 1
+        if depth == 0:
+            return html[:m.start()] + html[pos + tag.end():]
+    raise ValueError(f"block {block_id} is unbalanced")
+
+
+# Phase 3 content changes, keyed by page directory
+CONTENT_EDITS = {
+    # The Squarespace form handler goes away with the subscription, so the form (and the divider
+    # above it) is dropped; email and Instagram links stay.
+    "contact": [
+        ("remove", "block-yui_3_17_2_1_1536934884119_4679"),  # horizontal rule
+        ("remove", "block-yui_3_17_2_1_1536934884119_3982"),  # contact form
+        ("replace", '>Instagram</a>, or use the form below! </p>', '>Instagram</a>! </p>'),
+        ("replace", 'directly at <a href="mailto:megbrennanmusic@gmail.com" target="_blank">megbrennanmusic@gmail.com</a>, connect',
+                    'directly at <a href="mailto:megbrennanmusic@gmail.com" target="_blank">megbrennanmusic@gmail.com</a> or connect'),
+    ],
+}
+
+
+def apply_content_edits(rel_dir, html):
+    for edit in CONTENT_EDITS.get(rel_dir, []):
+        if edit[0] == "remove":
+            html = remove_block(html, edit[1])
+        else:
+            if edit[1] not in html:
+                raise ValueError(f"{rel_dir}: text not found: {edit[1]}")
+            html = html.replace(edit[1], edit[2])
+    return html
+
+
 def build_page(rel_dir):
     src = os.path.join(SRC, rel_dir, "index.html")
     html = open(src, encoding="utf-8").read()
     html = rewrite_asset_urls(html)
     html = swap_fonts(html)
     html = strip_squarespace_services(html)
+    html = apply_content_edits(rel_dir, html)
     dest = os.path.join(ROOT, rel_dir, "index.html")
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     open(dest, "w", encoding="utf-8").write(html)
