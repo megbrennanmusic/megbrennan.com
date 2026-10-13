@@ -104,6 +104,19 @@ def redirect_page(target):
             f'<a href="{target}">Continue to {target}</a>\n')
 
 
+def not_found_page():
+    """404.html for GitHub Pages, reusing a built page's header and footer."""
+    html = open(os.path.join(ROOT, "short", "index.html"), encoding="utf-8").read()
+    body = ('<main class="Main Main--page"><section class="Main-content">'
+            '<div class="sqs-layout"><div class="sqs-block html-block sqs-block-html"><div class="sqs-block-content">'
+            '<h1 style="text-align:center">Page not found</h1>'
+            '<p style="text-align:center">Sorry, that page doesn\'t exist. <a href="/">Go to the homepage</a>.</p>'
+            '</div></div></div></section></main>')
+    html = re.sub(r"<main\b.*?</main>", lambda m: body, html, count=1, flags=re.S)
+    html = re.sub(r"<title>.*?</title>", "<title>Page Not Found &mdash; Meg Brennan</title>", html, count=1)
+    open(os.path.join(ROOT, "404.html"), "w", encoding="utf-8").write(html)
+
+
 def main():
     pages = []
     for dp, _, fs in os.walk(SRC):
@@ -125,6 +138,7 @@ def main():
     # Icon sprites and placeholders Squarespace served from the site's own domain
     shutil.copy(os.path.join(SRC, "assets", "ui-icons.svg"), os.path.join(ROOT, "assets", "ui-icons.svg"))
     shutil.copytree(os.path.join(SRC, "universal"), os.path.join(ROOT, "universal"), dirs_exist_ok=True)
+    not_found_page()
 
 
 if __name__ == "__main__":
