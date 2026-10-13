@@ -1,0 +1,2 @@
+/about-us /about-intro
+/bio-1 /short
