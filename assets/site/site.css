@@ -1,0 +1,8 @@
+/* Styles Squarespace applied from JavaScript at runtime. */
+
+/* Video embeds fill their aspect-ratio wrapper */
+.embed-block-wrapper { position: relative; }
+.sqs-video-wrapper.video-loaded,
+.sqs-video-wrapper.video-loaded iframe {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0;
+}
