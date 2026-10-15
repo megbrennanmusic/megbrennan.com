@@ -191,13 +191,13 @@
         var name = btn.getAttribute('data-controller-folder-toggle');
         var target = document.querySelector('.Mobile-overlay-folder[data-controller-folder="' + name + '"]');
         if (target) target.classList.add('is-active-folder');
-        document.querySelector('.Mobile-overlay-menu-main').classList.add('is-active-folder');
+        document.querySelector('.Mobile-overlay-menu').classList.add('has-active-folder');
       });
     });
     document.querySelectorAll('.Mobile-overlay-folder-item--toggle').forEach(function (btn) {
       btn.addEventListener('click', function () {
         folders.forEach(function (f) { f.classList.remove('is-active-folder'); });
-        document.querySelector('.Mobile-overlay-menu-main').classList.remove('is-active-folder');
+        document.querySelector('.Mobile-overlay-menu').classList.remove('has-active-folder');
       });
     });
     document.querySelectorAll('.Mobile-overlay-back').forEach(function (el) {
