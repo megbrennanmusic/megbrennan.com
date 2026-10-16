@@ -17,6 +17,8 @@ SRC = os.path.join(ROOT, "_original")
 HOSTS = ("images.squarespace-cdn.com", "static1.squarespace.com", "assets.squarespace.com",
          "definitions.sqspcdn.com", "file.squarespace-cdn.com")
 SITE = "https://www.megbrennan.com"
+# Footer text block that reads "POWERED BY SQUARESPACE", removed from every page
+FOOTER_CREDIT_BLOCK = "block-bed96c51e290f122bd94"
 
 
 def rewrite_asset_urls(html):
@@ -90,6 +92,8 @@ def build_page(rel_dir):
     html = rewrite_asset_urls(html)
     html = swap_fonts(html)
     html = strip_squarespace_services(html)
+    if 'id="' + FOOTER_CREDIT_BLOCK + '"' in html:
+        html = remove_block(html, FOOTER_CREDIT_BLOCK)
     html = apply_content_edits(rel_dir, html)
     dest = os.path.join(ROOT, rel_dir, "index.html")
     os.makedirs(os.path.dirname(dest), exist_ok=True)
