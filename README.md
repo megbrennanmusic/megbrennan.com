@@ -71,5 +71,5 @@ try another font, download its `.woff2` files into `assets/fonts/` and point the
 - **Analytics**: Squarespace's visitor stats are gone.
 - The SoundCloud playlist embedded on the unlinked `/home` draft page no longer exists on
   SoundCloud (it fails on the Squarespace site too).
-- The footer's Volunteer and Donate links point at Squarespace's Mojave demo site, as they did
-  on the original.
+- The footer's template links (FAQ, Terms Of Service, Privacy Policy, Volunteer, Donate, Contact
+  Us) are removed. The FAQ, Terms and Privacy pages still exist but are no longer linked.

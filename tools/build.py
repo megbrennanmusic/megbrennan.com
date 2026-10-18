@@ -19,6 +19,9 @@ HOSTS = ("images.squarespace-cdn.com", "static1.squarespace.com", "assets.square
 SITE = "https://www.megbrennan.com"
 # Footer text block that reads "POWERED BY SQUARESPACE", removed from every page
 FOOTER_CREDIT_BLOCK = "block-bed96c51e290f122bd94"
+# Footer links (FAQ, Terms, Privacy, Volunteer, Donate, Contact Us) left over from the Mojave
+# template, removed from every page
+FOOTER_NAV = re.compile(r'\s*<nav class="Footer-nav"[^>]*>.*?</nav>', re.S)
 
 
 def rewrite_asset_urls(html):
@@ -94,6 +97,7 @@ def build_page(rel_dir):
     html = strip_squarespace_services(html)
     if 'id="' + FOOTER_CREDIT_BLOCK + '"' in html:
         html = remove_block(html, FOOTER_CREDIT_BLOCK)
+    html = FOOTER_NAV.sub("", html)
     html = apply_content_edits(rel_dir, html)
     dest = os.path.join(ROOT, rel_dir, "index.html")
     os.makedirs(os.path.dirname(dest), exist_ok=True)
