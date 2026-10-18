@@ -14,9 +14,10 @@ Static copy of Meg Brennan's Squarespace site, hosted on GitHub Pages.
 | `_original/` | Untouched HTML snapshot of every page as Squarespace served it, kept as a backup |
 | `tools/build.py` | Regenerates the pages from `_original/` |
 
-Every page from the Squarespace site is kept, including unlinked template pages (FAQ, Terms,
-Privacy, `/contact-1`, the demo blog) and drafts (`/home`, `/welcome`, `/about-intro`,
-`/summer-camps`).
+Every page from the Squarespace site is kept, including unlinked template pages (`/contact-1`,
+the demo blog) and drafts (`/home`, `/welcome`, `/about-intro`, `/summer-camps`). The only
+exceptions are the lorem ipsum FAQ, Terms and Privacy pages, which the build skips
+(`SKIP_PAGES` in `tools/build.py`).
 
 ## Preview locally
 
@@ -72,4 +73,4 @@ try another font, download its `.woff2` files into `assets/fonts/` and point the
 - The SoundCloud playlist embedded on the unlinked `/home` draft page no longer exists on
   SoundCloud (it fails on the Squarespace site too).
 - The footer's template links (FAQ, Terms Of Service, Privacy Policy, Volunteer, Donate, Contact
-  Us) are removed. The FAQ, Terms and Privacy pages still exist but are no longer linked.
+  Us) are removed, along with the FAQ, Terms and Privacy pages.
