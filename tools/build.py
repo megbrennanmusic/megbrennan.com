@@ -21,8 +21,9 @@ SITE = "https://www.megbrennan.com"
 FOOTER_CREDIT_BLOCK = "block-bed96c51e290f122bd94"
 # Footer links (FAQ, Terms, Privacy, Volunteer, Donate, Contact Us) left over from the Mojave
 # template, removed from every page
-# Placeholder pages from the Mojave template (lorem ipsum), not built
-SKIP_PAGES = {"faq-mojave", "terms-of-service-mojave", "privacy-policy-mojave"}
+# Placeholder pages from the Mojave template (lorem ipsum, sample contact details, the demo
+# photography blog), not built. A directory skips everything under it.
+SKIP_PAGES = ("faq-mojave", "terms-of-service-mojave", "privacy-policy-mojave", "contact-1", "blog")
 FOOTER_NAV = re.compile(r'\s*<nav class="Footer-nav"[^>]*>.*?</nav>', re.S)
 
 
@@ -132,7 +133,7 @@ def main():
     for dp, _, fs in os.walk(SRC):
         if "index.html" in fs:
             pages.append(os.path.relpath(dp, SRC).replace(".", "", 1) if dp == SRC else os.path.relpath(dp, SRC))
-    for rel in sorted(p for p in pages if p not in SKIP_PAGES):
+    for rel in sorted(p for p in pages if not any(p == s or p.startswith(s + "/") for s in SKIP_PAGES)):
         print("page", "/" + rel.strip("/"), "->", os.path.relpath(build_page(rel), ROOT))
 
     # Squarespace redirects (e.g. /bio-1 -> /short) become meta-refresh pages
