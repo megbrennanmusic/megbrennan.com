@@ -3,7 +3,7 @@
 Usage: python3 tools/build.py
 
 Each _original/<path>/index.html is rewritten to <path>/index.html with:
-  - Squarespace CDN URLs pointed at the local mirror under /assets/<host>/...
+  - Squarespace CDN URLs pointed at the local copies in /assets/images/ and /assets/css/
   - Adobe Typekit replaced by the self-hosted stand-ins in /assets/fonts/fonts.css
   - Squarespace-only features (search, analytics, RSS, cookie banner) removed
   - Page-specific content changes from CONTENT_EDITS applied
@@ -16,6 +16,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "_original")
 HOSTS = ("images.squarespace-cdn.com", "static1.squarespace.com", "assets.squarespace.com",
          "definitions.sqspcdn.com", "file.squarespace-cdn.com")
+# Where the files the pages use live in the local mirror, keyed by their path on the CDN
+ASSET_PATHS = (
+    (r"images\.squarespace-cdn\.com/content/v1/", "images/"),
+    (r"static1\.squarespace\.com/static/sitecss/[^\"'?]*/site\.css(?:\?nocustom=true)?", "css/template.css"),
+    (r"definitions\.sqspcdn\.com/website-component-definition/static-assets/website\.components\.(\w+)/[^/]+/"
+     r"website\.components\.\w+\.styles\.css", r"css/components/\1.css"),
+)
 SITE = "https://www.megbrennan.com"
 # Footer text block that reads "POWERED BY SQUARESPACE", removed from every page
 FOOTER_CREDIT_BLOCK = "block-bed96c51e290f122bd94"
@@ -32,6 +39,8 @@ def rewrite_asset_urls(html):
         # Plain, protocol-relative, http and JSON-escaped (https:\/\/host\/) forms
         html = re.sub(r"(?:https?:)?//" + re.escape(host) + "/", f"/assets/{host}/", html)
         html = re.sub(r"(?:https?:)?\\/\\/" + re.escape(host) + r"\\/", f"\\/assets\\/{host}\\/", html)
+    for src, dest in ASSET_PATHS:
+        html = re.sub("/assets/" + src, "/assets/" + dest, html)
     return html
 
 
@@ -50,6 +59,13 @@ def strip_squarespace_services(html):
     # Drop the Squarespace runtime (loader, analytics, telemetry, editor hooks); keep structured data.
     # assets/site/site.js reimplements the parts the template needs.
     html = re.sub(r'<script\b(?![^>]*application/ld\+json)[^>]*>.*?</script>\s*', "", html, flags=re.S)
+    # Block attributes listing the component scripts and styles the runtime loaded
+    html = re.sub(r' data-block-(?:css|scripts)="[^"]*"', "", html)
+    # Platform comments, the default favicon and the platform's copy of Varela Round
+    # (assets/fonts/fonts.css has its own)
+    html = re.sub(r"\s*<!-- (?:This is Squarespace\.|mauve-tarpon-\w+|End of Squarespace Headers) -->", "", html)
+    html = re.sub(r'<link rel="icon"[^>]*default-favicon\.ico"[^>]*>', "", html)
+    html = re.sub(r'<style data-sqsp-font-ids="[^"]*">.*?</style>', "", html, flags=re.S)
     html = html.replace("</head>", '<link rel="stylesheet" href="/assets/site/site.css">\n</head>', 1)
     return html.replace("</body>", '<script src="/assets/site/site.js" defer></script>\n</body>', 1)
 
@@ -77,6 +93,11 @@ CONTENT_EDITS = {
         ("replace", '>Instagram</a>, or use the form below! </p>', '>Instagram</a>! </p>'),
         ("replace", 'directly at <a href="mailto:megbrennanmusic@gmail.com" target="_blank">megbrennanmusic@gmail.com</a>, connect',
                     'directly at <a href="mailto:megbrennanmusic@gmail.com" target="_blank">megbrennanmusic@gmail.com</a> or connect'),
+    ],
+    # An empty link (just a space) to the site's old Squarespace address
+    "bio": [
+        ("replace", 'featured on<a href="https://mauve-tarpon-lcc9.squarespace.com/music"> </a>Fox',
+                    'featured on Fox'),
     ],
 }
 
