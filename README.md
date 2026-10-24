@@ -11,6 +11,7 @@ Meg Brennan's website, a static site hosted on GitHub Pages.
 | `assets/css/` | The site template's stylesheet (`template.css`) and per-block styles (`components/`) |
 | `assets/site/site.js` | Site script (header layout, image crops, parallax, gallery grid, videos, mobile menu, search) |
 | `assets/fonts/fonts.css` | Font definitions |
+| `assets/favicon/`, `favicon.ico` | Site icon: `favicon.svg` is the source, the `.ico` and Apple touch icon are rendered from it |
 | `s/` | PDF downloads (summer camp files) |
 | `_original/` | Untouched snapshot of every page and the template stylesheets, kept as the build source |
 | `tools/build.py` | Regenerates the pages from `_original/` |

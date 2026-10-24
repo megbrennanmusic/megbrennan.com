@@ -27,6 +27,9 @@ ASSET_PATHS = (
     (r"definitions\.sqspcdn\.com/website-component-definition/static-assets/website\.components\.(\w+)/[^/]+/"
      r"website\.components\.\w+\.styles\.css", r"css/components/\1.css"),
 )
+FAVICON_LINKS = ('<link rel="icon" href="/favicon.ico" sizes="32x32">'
+                 '<link rel="icon" href="/assets/favicon/favicon.svg" type="image/svg+xml">'
+                 '<link rel="apple-touch-icon" href="/assets/favicon/apple-touch-icon.png">')
 CDN_URL = re.compile(r"(?:https?:)?//(?:" + "|".join(map(re.escape, HOSTS)) + r")/[^\s\"'()<>]*")
 LOCAL_URL = re.compile(r"""(?:href|src|data-src|data-image|content)="(/(?:assets|universal|s)/[^"?#]+)"""
                        r"""|url\(['"]?(/(?:assets|universal|s)/[^'")?#]+)""")
@@ -78,10 +81,10 @@ def strip_squarespace_services(html):
     html = re.sub(r'<script\b(?![^>]*application/ld\+json)[^>]*>.*?</script>\s*', "", html, flags=re.S)
     # Block attributes listing the component scripts and styles the runtime loaded
     html = re.sub(r' data-block-(?:css|scripts)="[^"]*"', "", html)
-    # Platform comments, the default favicon (an empty icon stops the /favicon.ico request) and
-    # the platform's copy of Varela Round (assets/fonts/fonts.css has its own)
+    # Platform comments, the default favicon (replaced by the site's own in /assets/favicon/ and
+    # /favicon.ico) and the platform's copy of Varela Round (assets/fonts/fonts.css has its own)
     html = re.sub(r"\s*<!-- (?:This is Squarespace\.|mauve-tarpon-\w+|End of Squarespace Headers) -->", "", html)
-    html = re.sub(r'<link rel="icon"[^>]*default-favicon\.ico"[^>]*>', '<link rel="icon" href="data:,">', html)
+    html = re.sub(r'<link rel="icon"[^>]*default-favicon\.ico"[^>]*>', FAVICON_LINKS, html)
     html = re.sub(r'<style data-sqsp-font-ids="[^"]*">.*?</style>', "", html, flags=re.S)
     html = html.replace("</head>", '<link rel="stylesheet" href="/assets/site/site.css">\n</head>', 1)
     return html.replace("</body>", '<script src="/assets/site/site.js" defer></script>\n</body>', 1)
