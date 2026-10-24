@@ -4,9 +4,13 @@ Usage: python3 tools/build.py
 
 Each _original/<path>/index.html is rewritten to <path>/index.html with:
   - Squarespace CDN URLs pointed at the local copies in /assets/images/ and /assets/css/
+    (the build fails if a page refers to a local file that does not exist)
   - Adobe Typekit replaced by the self-hosted stand-ins in /assets/fonts/fonts.css
   - Squarespace-only features (search, analytics, RSS, cookie banner) removed
   - Page-specific content changes from CONTENT_EDITS applied
+
+Each stylesheet in _original/assets/css/ is written to assets/css/ with the platform's
+editor-only rules (UI and social icon fonts, CDN icon images) removed.
 
 Re-running is safe: generated pages are overwritten, _original/ is never touched.
 """
@@ -16,13 +20,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "_original")
 HOSTS = ("images.squarespace-cdn.com", "static1.squarespace.com", "assets.squarespace.com",
          "definitions.sqspcdn.com", "file.squarespace-cdn.com")
-# Where the files the pages use live in the local mirror, keyed by their path on the CDN
+# Where the files the pages use live under /assets/, keyed by their URL on the CDN
 ASSET_PATHS = (
     (r"images\.squarespace-cdn\.com/content/v1/", "images/"),
     (r"static1\.squarespace\.com/static/sitecss/[^\"'?]*/site\.css(?:\?nocustom=true)?", "css/template.css"),
     (r"definitions\.sqspcdn\.com/website-component-definition/static-assets/website\.components\.(\w+)/[^/]+/"
      r"website\.components\.\w+\.styles\.css", r"css/components/\1.css"),
 )
+CDN_URL = re.compile(r"(?:https?:)?//(?:" + "|".join(map(re.escape, HOSTS)) + r")/[^\s\"'()<>]*")
+LOCAL_URL = re.compile(r"""(?:href|src|data-src|data-image|content)="(/(?:assets|universal|s)/[^"?#]+)"""
+                       r"""|url\(['"]?(/(?:assets|universal|s)/[^'")?#]+)""")
 SITE = "https://www.megbrennan.com"
 # Footer text block that reads "POWERED BY SQUARESPACE", removed from every page
 FOOTER_CREDIT_BLOCK = "block-bed96c51e290f122bd94"
@@ -34,14 +41,24 @@ SKIP_PAGES = ("faq-mojave", "terms-of-service-mojave", "privacy-policy-mojave", 
 FOOTER_NAV = re.compile(r'\s*<nav class="Footer-nav"[^>]*>.*?</nav>', re.S)
 
 
-def rewrite_asset_urls(html):
-    for host in HOSTS:
-        # Plain, protocol-relative, http and JSON-escaped (https:\/\/host\/) forms
-        html = re.sub(r"(?:https?:)?//" + re.escape(host) + "/", f"/assets/{host}/", html)
-        html = re.sub(r"(?:https?:)?\\/\\/" + re.escape(host) + r"\\/", f"\\/assets\\/{host}\\/", html)
+def local_asset(m):
+    url = re.sub(r"^(?:https?:)?//", "", m.group(0))
     for src, dest in ASSET_PATHS:
-        html = re.sub("/assets/" + src, "/assets/" + dest, html)
-    return html
+        if re.match(src, url):
+            return "/assets/" + re.sub(src, dest, url, count=1)
+    raise ValueError(f"no local copy of {m.group(0)} (add it to ASSET_PATHS)")
+
+
+def rewrite_asset_urls(html):
+    return CDN_URL.sub(local_asset, html)
+
+
+def check_local_urls(rel_dir, html):
+    """Fail the build if the page refers to a local file that does not exist."""
+    for m in LOCAL_URL.finditer(html):
+        path = m.group(1) or m.group(2)
+        if not os.path.exists(os.path.join(ROOT, path.lstrip("/"))):
+            raise ValueError(f"{rel_dir or '/'}: missing local file {path}")
 
 
 def swap_fonts(html):
@@ -61,10 +78,10 @@ def strip_squarespace_services(html):
     html = re.sub(r'<script\b(?![^>]*application/ld\+json)[^>]*>.*?</script>\s*', "", html, flags=re.S)
     # Block attributes listing the component scripts and styles the runtime loaded
     html = re.sub(r' data-block-(?:css|scripts)="[^"]*"', "", html)
-    # Platform comments, the default favicon and the platform's copy of Varela Round
-    # (assets/fonts/fonts.css has its own)
+    # Platform comments, the default favicon (an empty icon stops the /favicon.ico request) and
+    # the platform's copy of Varela Round (assets/fonts/fonts.css has its own)
     html = re.sub(r"\s*<!-- (?:This is Squarespace\.|mauve-tarpon-\w+|End of Squarespace Headers) -->", "", html)
-    html = re.sub(r'<link rel="icon"[^>]*default-favicon\.ico"[^>]*>', "", html)
+    html = re.sub(r'<link rel="icon"[^>]*default-favicon\.ico"[^>]*>', '<link rel="icon" href="data:,">', html)
     html = re.sub(r'<style data-sqsp-font-ids="[^"]*">.*?</style>', "", html, flags=re.S)
     html = html.replace("</head>", '<link rel="stylesheet" href="/assets/site/site.css">\n</head>', 1)
     return html.replace("</body>", '<script src="/assets/site/site.js" defer></script>\n</body>', 1)
@@ -90,6 +107,7 @@ CONTENT_EDITS = {
     "contact": [
         ("remove", "block-yui_3_17_2_1_1536934884119_4679"),  # horizontal rule
         ("remove", "block-yui_3_17_2_1_1536934884119_3982"),  # contact form
+        ("replace", '<link rel="stylesheet" type="text/css" href="/assets/css/components/form.css"/>', ""),
         ("replace", '>Instagram</a>, or use the form below! </p>', '>Instagram</a>! </p>'),
         ("replace", 'directly at <a href="mailto:megbrennanmusic@gmail.com" target="_blank">megbrennanmusic@gmail.com</a>, connect',
                     'directly at <a href="mailto:megbrennanmusic@gmail.com" target="_blank">megbrennanmusic@gmail.com</a> or connect'),
@@ -116,16 +134,46 @@ def apply_content_edits(rel_dir, html):
 def build_page(rel_dir):
     src = os.path.join(SRC, rel_dir, "index.html")
     html = open(src, encoding="utf-8").read()
-    html = rewrite_asset_urls(html)
+    # Strip the platform's scripts and links first so only URLs the page still uses get rewritten
     html = swap_fonts(html)
     html = strip_squarespace_services(html)
+    html = rewrite_asset_urls(html)
     if 'id="' + FOOTER_CREDIT_BLOCK + '"' in html:
         html = remove_block(html, FOOTER_CREDIT_BLOCK)
     html = FOOTER_NAV.sub("", html)
     html = apply_content_edits(rel_dir, html)
+    check_local_urls(rel_dir, html)
     dest = os.path.join(ROOT, rel_dir, "index.html")
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     open(dest, "w", encoding="utf-8").write(html)
+    return dest
+
+
+# Icon fonts the platform loaded for its editor, galleries and social buttons. Their files are not
+# mirrored, so rules that use them are dropped.
+PLATFORM_FONTS = ("squarespace-ui-font", "social-icon-font")
+
+
+def build_css(rel_path):
+    """Copy one stylesheet from _original/assets/css/ with the platform's leftovers removed."""
+    css = open(os.path.join(SRC, rel_path), encoding="utf-8").read()
+    css = re.sub(r"/\*! Squarespace LESS Compiler[^*]*\*/\s*", "", css)
+    fonts = "|".join(map(re.escape, PLATFORM_FONTS))
+    css = re.sub(r"@font-face\{[^{}]*font-family:\s*['\"]?(?:" + fonts + r")[^{}]*\}", "", css)
+    css = re.sub(r"[^{}]+\{[^{}]*font-family:\s*['\"]?(?:" + fonts + r")['\"]?[^{}]*\}", "", css)
+    # Editor and commerce icons served from the platform's CDN
+    css = CDN_URL.sub("", css)
+    css = re.sub(r"url\((['\"]?)\1\)", "none", css)
+    # Rules and @media blocks left empty
+    while True:
+        out = re.sub(r"(^|[{}])[^{}@]*\{\s*\}", r"\1", css)
+        out = re.sub(r"@media[^{}]*\{\s*\}", "", out)
+        if out == css:
+            break
+        css = out
+    dest = os.path.join(ROOT, rel_path)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    open(dest, "w", encoding="utf-8").write(css)
     return dest
 
 
@@ -154,6 +202,9 @@ def main():
     for dp, _, fs in os.walk(SRC):
         if "index.html" in fs:
             pages.append(os.path.relpath(dp, SRC).replace(".", "", 1) if dp == SRC else os.path.relpath(dp, SRC))
+    for dp, _, fs in os.walk(os.path.join(SRC, "assets", "css")):
+        for f in sorted(fs):
+            print("css", os.path.relpath(build_css(os.path.relpath(os.path.join(dp, f), SRC)), ROOT))
     for rel in sorted(p for p in pages if not any(p == s or p.startswith(s + "/") for s in SKIP_PAGES)):
         print("page", "/" + rel.strip("/"), "->", os.path.relpath(build_page(rel), ROOT))
 
