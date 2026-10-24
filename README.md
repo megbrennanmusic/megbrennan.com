@@ -7,11 +7,12 @@ Meg Brennan's website, a static site hosted on GitHub Pages.
 | Path | What it is |
 |---|---|
 | `index.html`, `<page>/index.html` | The live pages, one folder per URL (`/music` is `music/index.html`) |
-| `assets/` | Images, CSS and icons, plus `fonts/` and `site/` |
+| `assets/images/` | Photos and artwork used on the pages |
+| `assets/css/` | The site template's stylesheet (`template.css`) and per-block styles (`components/`) |
 | `assets/site/site.js` | Site script (header layout, image crops, parallax, gallery grid, videos, mobile menu, search) |
 | `assets/fonts/fonts.css` | Font definitions |
 | `s/` | PDF downloads (summer camp files) |
-| `_original/` | Untouched HTML snapshot of every page, kept as a backup |
+| `_original/` | Untouched snapshot of every page and the template stylesheets, kept as the build source |
 | `tools/build.py` | Regenerates the pages from `_original/` |
 
 Unlinked draft pages (`/home`, `/welcome`, `/about-intro`, `/summer-camps`) are kept. Template
